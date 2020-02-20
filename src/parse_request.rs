@@ -11,21 +11,24 @@ struct JsonRequest {
     doc: Value,
 }
 
-pub fn parse_request(content: String, storage: &mut InMemory) -> bool {
+pub fn parse_request(content: String, storage: &mut InMemory) -> String {
     let json: JsonRequest = serde_json::from_str(&content).unwrap();
 
     match json.method.as_str() {
         "create_or_replace" => {
             storage.create_or_replace(json.path, json.doc);
-            true
+            String::from("{\"path\": \"blah\"}")
         }
         "get" => {
             //if there is no method, we default to getting the document
-            storage.get(&json.path)
+            let data = storage.get(&json.path);
+            let content = serde_json::to_string(&data).unwrap();
+            println!("{:#?}", content);
+            content
         }
         unknown => {
             println!("Unsupported method '{}' was called", unknown);
-            true
+            String::from("{\"path\": \"blah\"}")
         }
     }
 }

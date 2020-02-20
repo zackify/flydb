@@ -1,26 +1,26 @@
 use super::parse_request::parse_request;
-use super::storage;
-use std::io::{BufRead, BufReader};
-use std::net::TcpStream;
+use super::storage::in_memory::InMemory;
+use async_std::io::{BufReader, BufWriter};
+use async_std::net::TcpStream;
+use async_std::prelude::*;
 
-pub struct ClientData<'a> {
-    pub stream: &'a mut TcpStream,
-}
-
-pub fn handle_client(data: ClientData) {
-    let mut connection = BufReader::new(data.stream);
-    let mut storage_data = storage::get_storage(storage::StorageType::InMemory);
-
+pub async fn handle_client(mut stream: TcpStream, storage: &mut InMemory) {
     loop {
+        let mut reader = BufReader::new(&mut stream);
         let mut content = String::new();
 
-        match connection.read_line(&mut content) {
+        match reader.read_line(&mut content).await {
             Err(e) => eprintln!("{:#?}", e),
             Ok(result) => {
                 if result == 0 {
                     break;
                 }
-                parse_request(content, &mut storage_data);
+                let response = parse_request(content, storage);
+
+                stream
+                    .write(format!("{}\n", response).as_bytes())
+                    .await
+                    .unwrap();
             }
         }
     }
