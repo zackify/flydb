@@ -2,6 +2,7 @@
 use super::storage::in_memory::InMemory;
 use serde::Deserialize;
 use serde_json::Value;
+use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize, Debug)]
 struct JsonRequest {
@@ -11,20 +12,21 @@ struct JsonRequest {
     doc: Value,
 }
 
-pub fn parse_request(content: String, storage: &mut InMemory) -> String {
+pub fn parse_request(content: String, storage: &Arc<Mutex<InMemory>>) -> String {
     let json: JsonRequest = serde_json::from_str(&content).unwrap();
 
+    let mut store = storage.lock().unwrap();
     match json.method.as_str() {
         "create_or_replace" => {
             let response = String::from(format!("{{\"path\": \"{}\"}}", &json.path));
             println!("{}", &json.path);
-            storage.create_or_replace(json.path, json.doc);
+            store.create_or_replace(json.path, json.doc);
 
             response
         }
         "get" => {
             //if there is no method, we default to getting the document
-            let data = storage.get(&json.path);
+            let data = store.get(&json.path);
             let content = serde_json::to_string(&data).unwrap();
             println!("{:#?}", content);
             String::from(format!(

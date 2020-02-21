@@ -2,26 +2,30 @@ mod handle_client;
 mod parse_request;
 mod storage;
 use async_std::task;
+use std::sync::{Arc,Mutex};
 use async_std::net::TcpListener;
 use async_std::prelude::*;
 use handle_client::handle_client;
 use storage::in_memory::InMemory;
 
-pub async fn initialize(mut storage_data: &mut InMemory) {
+pub async fn initialize(storage_data: Arc<Mutex<InMemory>>) {
     let listener = TcpListener::bind(String::from("0.0.0.0:7272"))
         .await
         .unwrap();
 
     while let Some(stream) = listener.incoming().next().await {
         let stream = stream.unwrap();
-        println!("new person!"); //add env variable for verbose logs
-        handle_client(stream, &mut storage_data).await;
+        let storage_data_clone = storage_data.clone();
+
+        task::spawn(handle_client(stream, storage_data_clone));
     }
 }
 
 pub async fn run() {
-    let mut storage_data = storage::get_storage(storage::StorageType::InMemory);
-    task::block_on(initialize(&mut storage_data));
+    let storage_data = storage::get_storage(storage::StorageType::InMemory);
+    let storage_arc = Arc::new(Mutex::new(storage_data));
+
+    initialize(storage_arc).await
 }
 
 #[cfg(test)]
