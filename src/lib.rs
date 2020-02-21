@@ -1,13 +1,14 @@
 mod handle_client;
-mod parse_request;
 mod storage;
 use async_std::task;
 use async_std::net::TcpListener;
 use async_std::prelude::*;
 use handle_client::handle_client;
-use storage::in_memory::InMemory;
 
-pub async fn initialize(mut storage_data: &mut InMemory) {
+use std::sync::mpsc::{channel, Sender};
+use serde_json::Value;
+
+pub async fn initialize(tx: Sender<Message>) {
     let listener = TcpListener::bind(String::from("0.0.0.0:7272"))
         .await
         .unwrap();
@@ -15,13 +16,21 @@ pub async fn initialize(mut storage_data: &mut InMemory) {
     while let Some(stream) = listener.incoming().next().await {
         let stream = stream.unwrap();
         println!("new person!"); //add env variable for verbose logs
-        handle_client(stream, &mut storage_data).await;
+        task::spawn(handle_client(stream, tx.clone()));
     }
+}
+
+pub struct Message {
+    method: String,
+    key: String,
+    value: Value,
 }
 
 pub async fn run() {
     let mut storage_data = storage::get_storage(storage::StorageType::InMemory);
-    task::block_on(initialize(&mut storage_data));
+    let (tx, rx) = channel::<Message>();
+
+    task::block_on(initialize(tx));
 }
 
 #[cfg(test)]
