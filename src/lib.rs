@@ -1,6 +1,7 @@
 mod handle_client;
 mod parse_request;
 mod storage;
+use async_std::task;
 use async_std::net::TcpListener;
 use async_std::prelude::*;
 use handle_client::handle_client;
@@ -20,7 +21,7 @@ pub async fn initialize(mut storage_data: &mut InMemory) {
 
 pub async fn run() {
     let mut storage_data = storage::get_storage(storage::StorageType::InMemory);
-    initialize(&mut storage_data).await;
+    task::block_on(initialize(&mut storage_data));
 }
 
 #[cfg(test)]
