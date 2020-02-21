@@ -1,6 +1,6 @@
 use super::parse_request::parse_request;
 use super::storage::in_memory::InMemory;
-use async_std::io::{BufReader, BufWriter};
+use async_std::io::BufReader;
 use async_std::net::TcpStream;
 use async_std::prelude::*;
 
@@ -18,7 +18,7 @@ pub async fn handle_client(mut stream: TcpStream, storage: &mut InMemory) {
                 let response = parse_request(content, storage);
 
                 stream
-                    .write(format!("{}\n", response).as_bytes())
+                    .write(format!("{}\r\n", response).as_bytes())
                     .await
                     .unwrap();
             }

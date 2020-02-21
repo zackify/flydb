@@ -13,7 +13,7 @@ pub async fn initialize(mut storage_data: &mut InMemory) {
 
     while let Some(stream) = listener.incoming().next().await {
         let stream = stream.unwrap();
-        println!("new person!");
+        println!("new person!"); //add env variable for verbose logs
         handle_client(stream, &mut storage_data).await;
     }
 }
