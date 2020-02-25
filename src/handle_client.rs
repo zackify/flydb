@@ -17,8 +17,9 @@ pub async fn handle_client(mut stream: TcpStream, storage: Arc<Mutex<InMemory>>)
                     break;
                 }
                 let response = parse_request(content, &storage);
+
                 stream
-                    .write(format!("{}\r\n", response).as_bytes())
+                    .write(format!("{}\n", response).as_bytes())
                     .await
                     .unwrap();
             }
