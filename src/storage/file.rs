@@ -9,7 +9,7 @@ impl FileAdapter {
         FileAdapter {}
     }
     pub fn get(&self, key: &String) -> Value {
-        let file = File::open(format!("backup/{}", key)).unwrap();
+        let file = File::open(format!("backup/{}.json", key)).unwrap();
         let reader = BufReader::new(file);
 
         serde_json::from_reader(reader).unwrap()
@@ -17,8 +17,11 @@ impl FileAdapter {
 
     pub fn create_or_replace(&mut self, key: String, value: Value) -> bool {
         // println!("tried to set {} to {:#?}", key, value);
-        std::fs::create_dir_all(format!("backup")).unwrap();
-        let file = File::create(format!("backup/{}", key)).unwrap();
+        let path = format!("backup/{}.json", key);
+        let stop = path.rfind('/').unwrap();
+
+        std::fs::create_dir_all(&path[0..stop]).unwrap();
+        let file = File::create(path).unwrap();
 
         serde_json::to_writer(&file, &value).unwrap();
         true
