@@ -11,10 +11,10 @@ impl InMemory {
         InMemory { adapter }
     }
 
-    pub fn get(&self, key: &String) -> &Value {
+    pub fn get(&self, key: &String) -> Value {
         //println!("tried to get {:#?}", self.adapter.get(&key.to_owned()));
         let raw_content = self.adapter.get(key).unwrap();
-        raw_content
+        raw_content.clone()
     }
 
     pub fn create_or_replace(&mut self, key: String, value: Value) -> bool {

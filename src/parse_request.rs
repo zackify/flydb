@@ -1,5 +1,5 @@
 //This file is responsible for handling the correct action based on the message we receive
-use super::storage::{StorageAdapter, StorageType};
+use super::storage::StorageAdapter;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
@@ -51,23 +51,16 @@ pub fn handle_message(json: Message, store: &mut StorageAdapter) -> Value {
     match json.method.as_str() {
         "create_or_replace" => {
             let response = json!({"path": &json.path});
-            match &mut store.adapter {
-                StorageType::InMemory(store) => store.create_or_replace(json.path, json.doc),
-            };
+            store.create_or_replace(json.path, json.doc);
 
             response
         }
         "get" => {
-            //if there is no method, we default to getting the document
-            match &store.adapter {
-                StorageType::InMemory(store) => {
-                    let data = store.get(&json.path);
-                    json!({
-                        "path": &json.path,
-                        "doc": &data
-                    })
-                }
-            }
+            let data = store.get(&json.path);
+            json!({
+                "path": &json.path,
+                "doc": &data
+            })
         }
         unknown => {
             println!("Unsupported method '{}' was called", unknown);

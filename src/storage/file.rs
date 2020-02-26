@@ -1,28 +1,26 @@
-use super::StorageAdapter;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
 
-pub struct File {
-    adapter: HashMap<String, Value>,
-}
+pub struct FileAdapter {}
 
-impl File {
-    pub fn new() -> File {
-        let adapter = HashMap::new();
-        File { adapter }
+impl FileAdapter {
+    pub fn new() -> FileAdapter {
+        FileAdapter {}
     }
-}
+    pub fn get(&self, key: &String) -> Value {
+        let file = File::open(format!("backup/{}", key)).unwrap();
+        let reader = BufReader::new(file);
 
-impl StorageAdapter for File {
-    fn get(&self, key: &String) -> &Value {
-        //println!("tried to get {:#?}", self.adapter.get(&key.to_owned()));
-        let raw_content = self.adapter.get(key).unwrap();
-        raw_content
+        serde_json::from_reader(reader).unwrap()
     }
 
-    fn create_or_replace(&mut self, key: String, value: Value) -> bool {
+    pub fn create_or_replace(&mut self, key: String, value: Value) -> bool {
         // println!("tried to set {} to {:#?}", key, value);
-        self.adapter.insert(key, value);
+        std::fs::create_dir_all(format!("backup")).unwrap();
+        let file = File::create(format!("backup/{}", key)).unwrap();
+
+        serde_json::to_writer(&file, &value).unwrap();
         true
     }
 }
