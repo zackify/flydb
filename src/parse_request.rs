@@ -50,7 +50,7 @@ pub fn parse_request(content: String, storage: &Arc<Mutex<InMemory>>) -> String 
 pub fn handle_message(json: Message, store: &mut InMemory) -> Value {
     match json.method.as_str() {
         "create_or_replace" => {
-            let response = json!("");
+            let response = json!({"path": &json.path});
             store.create_or_replace(json.path, json.doc);
 
             response
@@ -70,5 +70,124 @@ pub fn handle_message(json: Message, store: &mut InMemory) -> Value {
                 "error": "Unsupported method"
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn handle_success_only_create_or_replace() {
+        let mut store = Arc::new(Mutex::new(InMemory::new()));
+
+        //request from tcp client
+        let request = json!({
+            "id": 6,
+            "kind": "success_only",
+            "messages":[
+                {
+                    "path": "blah" ,
+                    "method": "create_or_replace",
+                    "doc": {
+                        "test": "this just got inserted",
+                    }
+                }
+            ]
+        })
+        .to_string();
+
+        // response from parse message, sending to tcp client
+        let response = json!({
+            "id": 6,
+            "success": true,
+        })
+        .to_string();
+
+        assert_eq!(parse_request(request, &mut store), response)
+    }
+
+    #[test]
+    fn handle_normal_create_or_replace() {
+        let mut store = Arc::new(Mutex::new(InMemory::new()));
+
+        //request from tcp client
+        let request = json!({
+            "id": 1,
+            "messages":[
+                {
+                    "path": "blah" ,
+                    "method": "create_or_replace",
+                    "doc": {
+                        "test": "this just got inserted",
+                    }
+                }
+            ]
+        })
+        .to_string();
+
+        // response from parse message, sending to tcp client
+        let response = json!({
+            "id": 1,
+            "messages": [
+                {
+                    "path": "blah"
+                }
+            ]
+        })
+        .to_string();
+
+        assert_eq!(parse_request(request, &mut store), response)
+    }
+
+    #[test]
+    fn handle_getting_stored_document() {
+        let mut store = Arc::new(Mutex::new(InMemory::new()));
+
+        //store the document so it is in the store for the test below
+        parse_request(
+            json!({
+                "id": 1,
+                "messages":[
+                    {
+                        "path": "blah" ,
+                        "method": "create_or_replace",
+                        "doc": {
+                            "test": "this just got inserted",
+                        }
+                    }
+                ]
+            })
+            .to_string(),
+            &mut store,
+        );
+
+        //request from tcp client
+        let request = json!({
+            "id": 1,
+            "messages":[
+                {
+                    "path": "blah" ,
+                    "method": "get",
+                }
+            ]
+        })
+        .to_string();
+
+        // response from parse message, sending to tcp client
+        let response = json!({
+            "id": 1,
+            "messages": [
+                {
+                    "path": "blah",
+                    "doc": {
+                        "test": "this just got inserted",
+                    }
+                }
+            ]
+        })
+        .to_string();
+
+        assert_eq!(parse_request(request, &mut store), response,)
     }
 }
