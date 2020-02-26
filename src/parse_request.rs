@@ -1,5 +1,5 @@
 //This file is responsible for handling the correct action based on the message we receive
-use super::storage::in_memory::InMemory;
+use super::storage::{StorageAdapter, StorageType};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
@@ -20,7 +20,7 @@ pub struct JsonRequest {
     kind: String,
 }
 
-pub fn parse_request(content: String, storage: &Arc<Mutex<InMemory>>) -> String {
+pub fn parse_request(content: String, storage: &Arc<Mutex<StorageAdapter>>) -> String {
     let json: JsonRequest = serde_json::from_str(&content).unwrap();
     let mut store = storage.lock().unwrap();
 
@@ -47,21 +47,27 @@ pub fn parse_request(content: String, storage: &Arc<Mutex<InMemory>>) -> String 
     }
 }
 
-pub fn handle_message(json: Message, store: &mut InMemory) -> Value {
+pub fn handle_message(json: Message, store: &mut StorageAdapter) -> Value {
     match json.method.as_str() {
         "create_or_replace" => {
             let response = json!({"path": &json.path});
-            store.create_or_replace(json.path, json.doc);
+            match &mut store.adapter {
+                StorageType::InMemory(store) => store.create_or_replace(json.path, json.doc),
+            };
 
             response
         }
         "get" => {
             //if there is no method, we default to getting the document
-            let data = store.get(&json.path);
-            json!({
-                "path": &json.path,
-                "doc": &data
-            })
+            match &store.adapter {
+                StorageType::InMemory(store) => {
+                    let data = store.get(&json.path);
+                    json!({
+                        "path": &json.path,
+                        "doc": &data
+                    })
+                }
+            }
         }
         unknown => {
             println!("Unsupported method '{}' was called", unknown);
@@ -75,11 +81,11 @@ pub fn handle_message(json: Message, store: &mut InMemory) -> Value {
 
 #[cfg(test)]
 mod tests {
+    use super::super::storage::in_memory_adapter;
     use super::*;
-
     #[test]
     fn handle_success_only_create_or_replace() {
-        let mut store = Arc::new(Mutex::new(InMemory::new()));
+        let mut store = Arc::new(Mutex::new(in_memory_adapter()));
 
         //request from tcp client
         let request = json!({
@@ -109,7 +115,7 @@ mod tests {
 
     #[test]
     fn handle_normal_create_or_replace() {
-        let mut store = Arc::new(Mutex::new(InMemory::new()));
+        let mut store = Arc::new(Mutex::new(in_memory_adapter()));
 
         //request from tcp client
         let request = json!({
@@ -142,7 +148,7 @@ mod tests {
 
     #[test]
     fn handle_getting_stored_document() {
-        let mut store = Arc::new(Mutex::new(InMemory::new()));
+        let mut store = Arc::new(Mutex::new(in_memory_adapter()));
 
         //store the document so it is in the store for the test below
         parse_request(

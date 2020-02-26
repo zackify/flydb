@@ -1,18 +1,21 @@
 pub mod in_memory;
-use in_memory::InMemory;
+pub use in_memory::InMemory;
 
 pub enum StorageType {
-    InMemory,
-    // File,
-    // FileAndMemory,
+    InMemory(InMemory), // File,
+                        // FileAndMemory
 }
 
-pub fn get_storage(kind: StorageType) -> InMemory {
-    match kind {
-        StorageType::InMemory => InMemory::new(),
-        // _ => Storage {
-        //     get: in_memory::get,
-        //     set: in_memory::set,
-        // },
+pub struct StorageAdapter {
+    pub adapter: StorageType,
+}
+
+impl StorageAdapter {
+    pub fn new(adapter: StorageType) -> StorageAdapter {
+        StorageAdapter { adapter }
     }
+}
+
+pub fn in_memory_adapter() -> StorageAdapter {
+    StorageAdapter::new(StorageType::InMemory(InMemory::new()))
 }
