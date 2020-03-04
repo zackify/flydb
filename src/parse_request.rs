@@ -1,8 +1,7 @@
 //This file is responsible for handling the correct action based on the message we receive
-use super::storage::StorageAdapter;
+use super::storage::Storage;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize, Debug)]
 pub struct Message {
@@ -20,33 +19,37 @@ pub struct JsonRequest {
     kind: String,
 }
 
-pub fn parse_request(content: String, storage: &Arc<Mutex<dyn StorageAdapter + Send>>) -> String {
+pub fn parse_request(content: String, storage: &Storage) -> String {
     let json: JsonRequest = serde_json::from_str(&content).unwrap();
 
-    if json.kind == "success_only" {
-        for item in json.messages {
-            handle_message(item, &storage);
+    //avoid accumulating results if we want success only, prevent building up memory
+    match json.kind.as_str() {
+        "success_only" => {
+            for item in json.messages {
+                handle_message(item, &storage);
+            }
+            let response = json!({
+                "success": true,
+                "id": json.id,
+            });
+            serde_json::to_string(&response).unwrap()
         }
-        let response = json!({
-            "success": true,
-            "id": json.id,
-        });
-        serde_json::to_string(&response).unwrap()
-    } else {
-        let mut messages = vec![];
+        _ => {
+            let mut messages = vec![];
 
-        for item in json.messages {
-            messages.push(handle_message(item, &storage));
+            for item in json.messages {
+                messages.push(handle_message(item, &storage));
+            }
+            let response = json!({
+                "messages": messages,
+                "id": json.id,
+            });
+            serde_json::to_string(&response).unwrap()
         }
-        let response = json!({
-            "messages": messages,
-            "id": json.id,
-        });
-        serde_json::to_string(&response).unwrap()
     }
 }
 
-pub fn handle_message(json: Message, storage: &Arc<Mutex<dyn StorageAdapter + Send>>) -> Value {
+pub fn handle_message(json: Message, storage: &Storage) -> Value {
     let mut store = storage.lock().unwrap();
 
     match json.method.as_str() {
@@ -73,121 +76,121 @@ pub fn handle_message(json: Message, storage: &Arc<Mutex<dyn StorageAdapter + Se
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::super::storage::in_memory_adapter;
-//     use super::*;
-//     #[test]
-//     fn handle_success_only_create_or_replace() {
-//         let mut store = Arc::new(Mutex::new(in_memory_adapter()));
+#[cfg(test)]
+mod tests {
+    use super::super::storage::in_memory;
+    use super::*;
+    #[test]
+    fn handle_success_only_create_or_replace() {
+        let mut store = in_memory();
 
-//         //request from tcp client
-//         let request = json!({
-//             "id": 6,
-//             "kind": "success_only",
-//             "messages":[
-//                 {
-//                     "path": "blah" ,
-//                     "method": "create_or_replace",
-//                     "doc": {
-//                         "test": "this just got inserted",
-//                     }
-//                 }
-//             ]
-//         })
-//         .to_string();
+        //request from tcp client
+        let request = json!({
+            "id": 6,
+            "kind": "success_only",
+            "messages":[
+                {
+                    "path": "blah" ,
+                    "method": "create_or_replace",
+                    "doc": {
+                        "test": "this just got inserted",
+                    }
+                }
+            ]
+        })
+        .to_string();
 
-//         // response from parse message, sending to tcp client
-//         let response = json!({
-//             "id": 6,
-//             "success": true,
-//         })
-//         .to_string();
+        // response from parse message, sending to tcp client
+        let response = json!({
+            "id": 6,
+            "success": true,
+        })
+        .to_string();
 
-//         assert_eq!(parse_request(request, &mut store), response)
-//     }
+        assert_eq!(parse_request(request, &mut store), response)
+    }
 
-//     #[test]
-//     fn handle_normal_create_or_replace() {
-//         let mut store = Arc::new(Mutex::new(in_memory_adapter()));
+    #[test]
+    fn handle_normal_create_or_replace() {
+        let mut store = in_memory();
 
-//         //request from tcp client
-//         let request = json!({
-//             "id": 1,
-//             "messages":[
-//                 {
-//                     "path": "blah" ,
-//                     "method": "create_or_replace",
-//                     "doc": {
-//                         "test": "this just got inserted",
-//                     }
-//                 }
-//             ]
-//         })
-//         .to_string();
+        //request from tcp client
+        let request = json!({
+            "id": 1,
+            "messages":[
+                {
+                    "path": "blah" ,
+                    "method": "create_or_replace",
+                    "doc": {
+                        "test": "this just got inserted",
+                    }
+                }
+            ]
+        })
+        .to_string();
 
-//         // response from parse message, sending to tcp client
-//         let response = json!({
-//             "id": 1,
-//             "messages": [
-//                 {
-//                     "path": "blah"
-//                 }
-//             ]
-//         })
-//         .to_string();
+        // response from parse message, sending to tcp client
+        let response = json!({
+            "id": 1,
+            "messages": [
+                {
+                    "path": "blah"
+                }
+            ]
+        })
+        .to_string();
 
-//         assert_eq!(parse_request(request, &mut store), response)
-//     }
+        assert_eq!(parse_request(request, &mut store), response)
+    }
 
-//     #[test]
-//     fn handle_getting_stored_document() {
-//         let mut store = Arc::new(Mutex::new(in_memory_adapter()));
+    #[test]
+    fn handle_getting_stored_document() {
+        let mut store = in_memory();
 
-//         //store the document so it is in the store for the test below
-//         parse_request(
-//             json!({
-//                 "id": 1,
-//                 "messages":[
-//                     {
-//                         "path": "blah" ,
-//                         "method": "create_or_replace",
-//                         "doc": {
-//                             "test": "this just got inserted",
-//                         }
-//                     }
-//                 ]
-//             })
-//             .to_string(),
-//             &mut store,
-//         );
+        //store the document so it is in the store for the test below
+        parse_request(
+            json!({
+                "id": 1,
+                "messages":[
+                    {
+                        "path": "blah" ,
+                        "method": "create_or_replace",
+                        "doc": {
+                            "test": "this just got inserted",
+                        }
+                    }
+                ]
+            })
+            .to_string(),
+            &mut store,
+        );
 
-//         //request from tcp client
-//         let request = json!({
-//             "id": 1,
-//             "messages":[
-//                 {
-//                     "path": "blah" ,
-//                     "method": "get",
-//                 }
-//             ]
-//         })
-//         .to_string();
+        //request from tcp client
+        let request = json!({
+            "id": 1,
+            "messages":[
+                {
+                    "path": "blah" ,
+                    "method": "get",
+                }
+            ]
+        })
+        .to_string();
 
-//         // response from parse message, sending to tcp client
-//         let response = json!({
-//             "id": 1,
-//             "messages": [
-//                 {
-//                     "path": "blah",
-//                     "doc": {
-//                         "test": "this just got inserted",
-//                     }
-//                 }
-//             ]
-//         })
-//         .to_string();
+        // response from parse message, sending to tcp client
+        let response = json!({
+            "id": 1,
+            "messages": [
+                {
+                    "path": "blah",
+                    "doc": {
+                        "test": "this just got inserted",
+                    }
+                }
+            ]
+        })
+        .to_string();
 
-//         assert_eq!(parse_request(request, &mut store), response,)
-//     }
-// }
+        assert_eq!(parse_request(request, &mut store), response,)
+    }
+}

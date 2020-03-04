@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub struct InMemoryAdapter {
     adapter: HashMap<String, Value>,
 }
+
 impl InMemoryAdapter {
     pub fn new() -> InMemoryAdapter {
         let adapter = HashMap::new();

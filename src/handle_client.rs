@@ -1,11 +1,10 @@
 use super::parse_request::parse_request;
-use super::storage::StorageAdapter;
+use super::storage::Storage;
 use async_std::io::BufReader;
 use async_std::net::TcpStream;
 use async_std::prelude::*;
-use std::sync::{Arc, Mutex};
 
-pub async fn handle_client(mut stream: TcpStream, storage: Arc<Mutex<dyn StorageAdapter + Send>>) {
+pub async fn handle_client(mut stream: TcpStream, storage: Storage) {
     loop {
         let mut reader = BufReader::new(&mut stream);
         let mut content = String::new();
