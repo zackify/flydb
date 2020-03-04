@@ -6,9 +6,9 @@ use async_std::prelude::*;
 use async_std::task;
 use handle_client::handle_client;
 use std::sync::{Arc, Mutex};
-use storage::{file_adapter, StorageAdapter};
+use storage::{InMemoryAdapter, StorageAdapter};
 
-pub async fn initialize(storage_data: Arc<Mutex<StorageAdapter>>) {
+pub async fn initialize(storage_data: Arc<Mutex<dyn StorageAdapter + Send>>) {
     let listener = TcpListener::bind(String::from("0.0.0.0:7272"))
         .await
         .unwrap();
@@ -22,7 +22,7 @@ pub async fn initialize(storage_data: Arc<Mutex<StorageAdapter>>) {
 }
 
 pub async fn run() {
-    let storage_data = file_adapter();
+    let storage_data = InMemoryAdapter::new();
     let storage_arc = Arc::new(Mutex::new(storage_data));
 
     initialize(storage_arc).await
