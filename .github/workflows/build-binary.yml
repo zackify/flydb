@@ -16,6 +16,8 @@ jobs:
       - name: Rename binary
         run: mv target/release/flydb flydb-macos64
       - name: Upload to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           curl \
             -f \
@@ -26,6 +28,29 @@ jobs:
             -H "Content-Type: application/octet-stream" \
             --upload-file "flydb-macos64" \
             "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$(jq --raw-output '.release.id' $GITHUB_EVENT_PATH)/assets?name=flydb-macos64"
+  build_for_pi:
+    name: Raspberry Pi
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: armv7-unknown-linux-gnueabihf
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target armv7-unknown-linux-gnueabihf
+      - name: Rename binary
+        run: mv target/armv7-unknown-linux-gnueabihf/release/flydb flydb-armv7-pi
+      - name: Upload to release
+        uses: JasonEtco/upload-to-release@d648f1babf776de9cad881320bd9e9818fc3b262
+        with:
+          args: flydb-armv7-pi application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
   build_for_android:
     name: Android
